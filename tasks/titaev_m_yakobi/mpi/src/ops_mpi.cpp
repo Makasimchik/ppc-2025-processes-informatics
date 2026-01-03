@@ -10,96 +10,121 @@
 
 namespace titaev_m_yakobi {
 
-TitaevMYakobiMPI::TitaevMYakobiMPI(const InType &in_) : in(in_) {}
+TitaevMYakobiMPI::TitaevMYakobiMPI(const InType &in) : input_(in) {
+  SetTypeOfTask(GetStaticTypeOfTask());
+  GetInput() = in;
+  GetOutput().resize(in.n, 0.0);
+}
 
 bool TitaevMYakobiMPI::ValidationImpl() {
+  const auto &in = GetInput();
   if (in.n <= 0) {
     return false;
   }
-  if (in.b.size() != static_cast<size_t>(in.n)) {
+  if (static_cast<int>(in.b.size()) != in.n) {
     return false;
   }
-  if (!in.x0.empty() && in.x0.size() != static_cast<size_t>(in.n)) {
+  if (!in.x0.empty() && static_cast<int>(in.x0.size()) != in.n) {
+    return false;
+  }
+  if (in.eps <= 0.0 || in.max_iter <= 0) {
     return false;
   }
   return true;
 }
 
+bool TitaevMYakobiMPI::PreProcessingImpl() {
+  auto &in = GetInput();
+  auto &out = GetOutput();
+  if (in.x0.empty()) {
+    in.x0.assign(in.n, 0.0);
+  }
+  out = in.x0;
+  return true;
+}
+
 void TitaevMYakobiMPI::ComputeLocal(const std::vector<ValueType> &x_old, std::vector<ValueType> &x_new, int start_row,
                                     int my_rows) const {
+  const auto &in = GetInput();
+  const int n = in.n;
+
   for (int local_i = 0; local_i < my_rows; ++local_i) {
     const int i = start_row + local_i;
-    ValueType sum = in.b[i];
-    ValueType diag = in.A[i * in.n + i];
-
+    ValueType diag = in.A[i * n + i];
     if (std::fabs(diag) < 1e-15) {
       continue;
     }
 
-    for (int j = 0; j < in.n; ++j) {
+    ValueType sum = 0.0;
+    for (int j = 0; j < n; ++j) {
       if (j != i) {
-        sum -= in.A[i * in.n + j] * x_old[j];
+        sum += in.A[i * n + j] * x_old[j];
       }
     }
-    x_new[local_i] = sum / diag;
+    x_new[local_i] = (in.b[i] - sum) / diag;
   }
 }
 
 bool TitaevMYakobiMPI::RunImpl() {
-  int rank = 0;
-  int size = 1;
+  const auto &in = GetInput();
+  auto &out = GetOutput();
+  const int n = in.n;
+
+  int rank = 0, size = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-  const int n = in.n;
+  std::vector<ValueType> x_old = out;
+
   const int rows_per_proc = n / size;
   const int remainder = n % size;
   const int my_rows = rows_per_proc + (rank < remainder ? 1 : 0);
+  const int start_row = rank * rows_per_proc + std::min(rank, remainder);
 
-  int start_row = 0;
-  for (int p = 0; p < rank; ++p) {
-    start_row += rows_per_proc + (p < remainder ? 1 : 0);
-  }
-
-  std::vector<ValueType> x_old = in.x0.empty() ? std::vector<ValueType>(n, 0.0) : in.x0;
-  std::vector<ValueType> x_local(my_rows);
-  std::vector<ValueType> x_new(n);
-
-  std::vector<int> recvcounts(size);
-  std::vector<int> displs(size);
-
-  int offset = 0;
-  for (int p = 0; p < size; ++p) {
-    recvcounts[p] = rows_per_proc + (p < remainder ? 1 : 0);
-    displs[p] = offset;
-    offset += recvcounts[p];
-  }
+  std::vector<ValueType> x_new_local(my_rows, 0.0);
 
   for (int iter = 0; iter < in.max_iter; ++iter) {
-    ComputeLocal(x_old, x_local, start_row, my_rows);
+    ComputeLocal(x_old, x_new_local, start_row, my_rows);
 
-    MPI_Gatherv(x_local.data(), my_rows, MPI_DOUBLE, x_new.data(), recvcounts.data(), displs.data(), MPI_DOUBLE, 0,
-                MPI_COMM_WORLD);
+    std::vector<ValueType> x_new_global;
+    if (rank == 0) {
+      x_new_global.resize(n);
+    }
+
+    std::vector<int> recvcounts(size), displs(size);
+    for (int r = 0; r < size; ++r) {
+      int rows_r = rows_per_proc + (r < remainder ? 1 : 0);
+      recvcounts[r] = rows_r;
+      displs[r] = r * rows_per_proc + std::min(r, remainder);
+    }
+
+    MPI_Gatherv(x_new_local.data(), my_rows, MPI_DOUBLE, x_new_global.data(), recvcounts.data(), displs.data(),
+                MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
     int converged = 0;
     if (rank == 0) {
       ValueType max_diff = 0.0;
       for (int i = 0; i < n; ++i) {
-        max_diff = std::max(max_diff, std::fabs(x_new[i] - x_old[i]));
+        max_diff = std::max(max_diff, std::fabs(x_new_global[i] - x_old[i]));
       }
+      x_old = x_new_global;
       converged = (max_diff < in.eps) ? 1 : 0;
-      x_old = x_new;
     }
 
-    MPI_Bcast(&converged, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(x_old.data(), n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&converged, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-    if (converged != 0) {
+    out = x_old;
+
+    if (converged) {
       break;
     }
   }
 
-  out = x_old;
+  return true;
+}
+
+bool TitaevMYakobiMPI::PostProcessingImpl() {
   return true;
 }
 

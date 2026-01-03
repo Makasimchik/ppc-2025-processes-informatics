@@ -17,6 +17,11 @@ class TitaevMYakobiMPI : public BaseTask {
   bool PreProcessingImpl() override;
   bool RunImpl() override;
   bool PostProcessingImpl() override;
+
+  void ComputeLocal(const std::vector<ValueType> &x_old, std::vector<ValueType> &x_new, int start_row,
+                    int my_rows) const;
+
+  InType input_;
 };
 
 }  // namespace titaev_m_yakobi

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include "task/include/task.hpp"
 #include "titaev_m_yakobi/common/include/common.hpp"
 
@@ -17,6 +19,8 @@ class TitaevMYakobiSEQ : public BaseTask {
   bool PreProcessingImpl() override;
   bool RunImpl() override;
   bool PostProcessingImpl() override;
+
+  void Iterate(const std::vector<ValueType> &x_old, std::vector<ValueType> &x_new) const;
 };
 
 }  // namespace titaev_m_yakobi
