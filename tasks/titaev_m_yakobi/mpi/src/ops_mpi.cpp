@@ -6,7 +6,7 @@
 #include <cmath>
 #include <vector>
 
-#include "tasks/titaev_m_yakobi/common/include/common.hpp"
+#include "titaev_m_yakobi/common/include/common.hpp"
 
 namespace titaev_m_yakobi {
 
