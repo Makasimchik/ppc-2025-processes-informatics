@@ -39,6 +39,20 @@ bool TitaevMYakobiMPI::ValidationImpl() {
   return true;
 }
 
+int TitaevMYakobiMPI::CheckConvergence(int rank, int n, const std::vector<ValueType> &x_new_global,
+                                       const std::vector<ValueType> &x_old, ValueType eps) {
+  if (rank != 0) {
+    return 0;
+  }
+
+  ValueType max_diff = 0.0;
+  for (int i = 0; i < n; ++i) {
+    const ValueType diff = std::fabs(x_new_global[i] - x_old[i]);
+    max_diff = std::max(diff, max_diff);
+  }
+  return (max_diff < eps) ? 1 : 0;
+}
+
 bool TitaevMYakobiMPI::PreProcessingImpl() {
   auto &in = GetInput();
   auto &out = GetOutput();
@@ -92,7 +106,6 @@ bool TitaevMYakobiMPI::RunImpl() {
 
   std::vector<int> recvcounts(size);
   std::vector<int> displs(size);
-
   for (int proc = 0; proc < size; ++proc) {
     const int rows_proc = rows_per_proc + (proc < remainder ? 1 : 0);
     recvcounts[proc] = rows_proc;
@@ -110,15 +123,10 @@ bool TitaevMYakobiMPI::RunImpl() {
     MPI_Gatherv(x_new_local.data(), my_rows, MPI_DOUBLE, x_new_global.data(), recvcounts.data(), displs.data(),
                 MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-    int converged = 0;
+    int converged = CheckConvergence(rank, n, x_new_global, x_old, in.eps);
+
     if (rank == 0) {
-      ValueType max_diff = 0.0;
-      for (int i = 0; i < n; ++i) {
-        const ValueType diff = std::fabs(x_new_global[i] - x_old[i]);
-        max_diff = std::max(diff, max_diff);
-      }
       x_old = std::move(x_new_global);
-      converged = (max_diff < in.eps) ? 1 : 0;
     }
 
     MPI_Bcast(x_old.data(), n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
