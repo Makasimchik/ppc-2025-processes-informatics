@@ -13,11 +13,21 @@ TitaevMYakobiSEQ::TitaevMYakobiSEQ(const InType &in) {
 
 bool TitaevMYakobiSEQ::ValidationImpl() {
   const auto &in = GetInput();
-  if (in.n <= 0) return false;
-  if (static_cast<int>(in.A.size()) != in.n * in.n) return false;
-  if (static_cast<int>(in.b.size()) != in.n) return false;
-  if (!in.x0.empty() && static_cast<int>(in.x0.size()) != in.n) return false;
-  if (in.eps <= 0.0 || in.max_iter <= 0) return false;
+  if (in.n <= 0) {
+    return false;
+  }
+  if (static_cast<int>(in.A.size()) != in.n * in.n) {
+    return false;
+  }
+  if (static_cast<int>(in.b.size()) != in.n) {
+    return false;
+  }
+  if (!in.x0.empty() && static_cast<int>(in.x0.size()) != in.n) {
+    return false;
+  }
+  if (in.eps <= 0.0 || in.max_iter <= 0) {
+    return false;
+  }
   return true;
 }
 
@@ -43,24 +53,31 @@ bool TitaevMYakobiSEQ::RunImpl() {
   for (int iter = 0; iter < in.max_iter; ++iter) {
     for (int i = 0; i < n; ++i) {
       ValueType diag = in.A[i * n + i];
-      if (std::fabs(diag) < 1e-15) return false;
+      if (std::fabs(diag) < 1e-15) {
+        return false;
+      }
 
       ValueType sum = 0.0;
       for (int j = 0; j < n; ++j) {
-        if (j == i) continue;
+        if (j == i) {
+          continue;
+        }
         sum += in.A[i * n + j] * x_old[j];
       }
       x_new[i] = (in.b[i] - sum) / diag;
     }
 
     ValueType max_diff = 0.0;
-    for (int i = 0; i < n; ++i)
+    for (int i = 0; i < n; ++i) {
       max_diff = std::max(max_diff, std::fabs(x_new[i] - x_old[i]));
+    }
 
     x_old.swap(x_new);
     out = x_old;
 
-    if (max_diff < in.eps) break;
+    if (max_diff < in.eps) {
+      break;
+    }
   }
   return true;
 }
