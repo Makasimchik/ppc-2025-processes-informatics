@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <vector>
@@ -38,12 +39,14 @@ class TitaevMYakobiPerfTests : public ppc::util::BaseRunPerfTests<InType, OutTyp
 
   bool CheckTestOutputData(OutType &output) final {
     const double tol = 1e-4;
+    bool all_ok = true;
     for (const auto x : output) {
       if (std::fabs(x - 1.0) > tol) {
-        return false;
+        all_ok = false;
+        break;
       }
     }
-    return true;
+    return all_ok;
   }
 
   InType GetTestInputData() final {

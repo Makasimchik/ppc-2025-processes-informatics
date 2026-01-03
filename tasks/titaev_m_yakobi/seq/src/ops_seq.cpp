@@ -1,6 +1,5 @@
 #include "titaev_m_yakobi/seq/include/ops_seq.hpp"
 
-#include <algorithm>
 #include <cmath>
 #include <vector>
 
@@ -19,13 +18,13 @@ bool TitaevMYakobiSEQ::ValidationImpl() {
   if (in.n <= 0) {
     return false;
   }
-  if (static_cast<int>(in.A.size()) != in.n * in.n) {
+  if (static_cast<std::size_t>(in.n * in.n) != in.A.size()) {
     return false;
   }
-  if (static_cast<int>(in.b.size()) != in.n) {
+  if (static_cast<std::size_t>(in.n) != in.b.size()) {
     return false;
   }
-  if (!in.x0.empty() && static_cast<int>(in.x0.size()) != in.n) {
+  if (!in.x0.empty() && static_cast<std::size_t>(in.n) != in.x0.size()) {
     return false;
   }
   if (in.eps <= 0.0 || in.max_iter <= 0) {
@@ -49,7 +48,7 @@ void TitaevMYakobiSEQ::Iterate(const std::vector<ValueType> &x_old, std::vector<
   const int n = in.n;
 
   for (int i = 0; i < n; ++i) {
-    const ValueType diag = in.A[i * n + i];
+    const ValueType diag = in.A[(i * n) + i];
     if (std::fabs(diag) < 1e-15) {
       continue;
     }
@@ -57,7 +56,7 @@ void TitaevMYakobiSEQ::Iterate(const std::vector<ValueType> &x_old, std::vector<
     ValueType sum = 0.0;
     for (int j = 0; j < n; ++j) {
       if (j != i) {
-        sum += in.A[i * n + j] * x_old[j];
+        sum += in.A[(i * n) + j] * x_old[j];
       }
     }
     x_new[i] = (in.b[i] - sum) / diag;
@@ -78,9 +77,7 @@ bool TitaevMYakobiSEQ::RunImpl() {
     ValueType max_diff = 0.0;
     for (int i = 0; i < n; ++i) {
       const ValueType diff = std::fabs(x_new[i] - x_old[i]);
-      if (diff > max_diff) {
-        max_diff = diff;
-      }
+      max_diff = std::max(diff, max_diff);
     }
 
     x_old.swap(x_new);

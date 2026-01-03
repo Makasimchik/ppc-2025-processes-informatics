@@ -42,7 +42,7 @@ class TitaevMYakobiFuncTests : public ppc::util::BaseRunFuncTests<InType, OutTyp
 
  public:
   static std::string PrintTestParam(const TestType &param) {
-    int n;
+    int n = 0;
     std::string name;
     std::tie(n, name) = param;
     return name + "_n" + std::to_string(n);
