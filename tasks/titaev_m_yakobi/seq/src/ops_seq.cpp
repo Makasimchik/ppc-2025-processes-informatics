@@ -1,90 +1,67 @@
 #include "titaev_m_yakobi/seq/include/ops_seq.hpp"
 
-#include <algorithm>  // для std::max
+#include <algorithm>
 #include <cmath>
-#include <utility>
 #include <vector>
+
+#include "tasks/titaev_m_yakobi/common/include/common.hpp"
 
 namespace titaev_m_yakobi {
 
-TitaevMYakobiSEQ::TitaevMYakobiSEQ(const InType &in) {
-  SetTypeOfTask(GetStaticTypeOfTask());
-  GetInput() = in;
-  GetOutput().resize(in.n, 0.0);
-}
+TitaevMYakobiSEQ::TitaevMYakobiSEQ(const InType &in_) : in(in_) {}
 
 bool TitaevMYakobiSEQ::ValidationImpl() {
-  const auto &in = GetInput();
   if (in.n <= 0) {
     return false;
   }
-  if (static_cast<int>(in.A.size()) != in.n * in.n) {
+  if (in.b.size() != static_cast<size_t>(in.n)) {
     return false;
   }
-  if (static_cast<int>(in.b.size()) != in.n) {
-    return false;
-  }
-  if (!in.x0.empty() && static_cast<int>(in.x0.size()) != in.n) {
-    return false;
-  }
-  if (in.eps <= 0.0 || in.max_iter <= 0) {
+  if (!in.x0.empty() && in.x0.size() != static_cast<size_t>(in.n)) {
     return false;
   }
   return true;
 }
 
-bool TitaevMYakobiSEQ::PreProcessingImpl() {
-  auto &in = GetInput();
-  auto &out = GetOutput();
+void TitaevMYakobiSEQ::Iterate(const std::vector<ValueType> &x_old, std::vector<ValueType> &x_new) const {
+  for (int i = 0; i < in.n; ++i) {
+    ValueType sum = in.b[i];
+    const ValueType diag = in.A[i * in.n + i];
 
-  if (in.x0.empty()) {
-    in.x0.assign(in.n, 0.0);
+    if (std::fabs(diag) < 1e-15) {
+      continue;
+    }
+
+    for (int j = 0; j < in.n; ++j) {
+      if (j != i) {
+        sum -= in.A[i * in.n + j] * x_old[j];
+      }
+    }
+    x_new[i] = sum / diag;
   }
-  out = in.x0;
-  return true;
 }
 
 bool TitaevMYakobiSEQ::RunImpl() {
-  const auto &in = GetInput();
-  auto &out = GetOutput();
   const int n = in.n;
 
-  std::vector<ValueType> x_old = out;
-  std::vector<ValueType> x_new(n, 0.0);
+  std::vector<ValueType> x_old = in.x0.empty() ? std::vector<ValueType>(n, 0.0) : in.x0;
+  std::vector<ValueType> x_new(n);
 
   for (int iter = 0; iter < in.max_iter; ++iter) {
-    for (int i = 0; i < n; ++i) {
-      ValueType diag = in.A[(i * n) + i];  // Добавлены скобки
-      if (std::fabs(diag) < 1e-15) {
-        return false;
-      }
-
-      ValueType sum = 0.0;
-      for (int j = 0; j < n; ++j) {
-        if (j == i) {
-          continue;
-        }
-        sum += in.A[(i * n) + j] * x_old[j];  // Добавлены скобки
-      }
-      x_new[i] = (in.b[i] - sum) / diag;
-    }
+    Iterate(x_old, x_new);
 
     ValueType max_diff = 0.0;
     for (int i = 0; i < n; ++i) {
       max_diff = std::max(max_diff, std::fabs(x_new[i] - x_old[i]));
     }
 
-    x_old.swap(x_new);
-    out = x_old;
-
+    x_old = x_new;
     if (max_diff < in.eps) {
       break;
     }
   }
-  return true;
-}
 
-bool TitaevMYakobiSEQ::PostProcessingImpl() {
+  out = x_old;
   return true;
 }
 
