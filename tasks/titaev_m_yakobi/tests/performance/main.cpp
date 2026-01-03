@@ -1,6 +1,9 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <vector>
 
 #include "titaev_m_yakobi/common/include/common.hpp"
 #include "titaev_m_yakobi/mpi/include/ops_mpi.hpp"

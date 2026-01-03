@@ -1,6 +1,8 @@
 #include "titaev_m_yakobi/seq/include/ops_seq.hpp"
 
+#include <algorithm>  // для std::max
 #include <cmath>
+#include <cstddef>  // для size_t
 #include <vector>
 
 namespace titaev_m_yakobi {
@@ -52,7 +54,7 @@ bool TitaevMYakobiSEQ::RunImpl() {
 
   for (int iter = 0; iter < in.max_iter; ++iter) {
     for (int i = 0; i < n; ++i) {
-      ValueType diag = in.A[i * n + i];
+      ValueType diag = in.A[(i * n) + i];  // Добавлены скобки
       if (std::fabs(diag) < 1e-15) {
         return false;
       }
@@ -62,7 +64,7 @@ bool TitaevMYakobiSEQ::RunImpl() {
         if (j == i) {
           continue;
         }
-        sum += in.A[i * n + j] * x_old[j];
+        sum += in.A[(i * n) + j] * x_old[j];  // Добавлены скобки
       }
       x_new[i] = (in.b[i] - sum) / diag;
     }

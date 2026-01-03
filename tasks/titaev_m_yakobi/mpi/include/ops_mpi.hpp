@@ -1,7 +1,5 @@
 #pragma once
 
-#include <vector>
-
 #include "task/include/task.hpp"
 #include "titaev_m_yakobi/common/include/common.hpp"
 

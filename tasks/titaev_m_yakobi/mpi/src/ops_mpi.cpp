@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>  // для size_t
+#include <cstdint>  // для целочисленных сравнений
 #include <vector>
 
 namespace titaev_m_yakobi {
@@ -49,7 +51,8 @@ bool TitaevMYakobiMPI::RunImpl() {
   auto &out = GetOutput();
   int n = in.n;
 
-  int rank, size;
+  int rank = 0;
+  int size = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
@@ -58,22 +61,22 @@ bool TitaevMYakobiMPI::RunImpl() {
   int rows_per_proc = n / size;
   int remainder = n % size;
   int my_rows = rows_per_proc + (rank < remainder ? 1 : 0);
-  int start_row = rank * rows_per_proc + std::min(rank, remainder);
+  int start_row = (rank * rows_per_proc) + std::min(rank, remainder);  // Добавлены скобки
 
   std::vector<ValueType> x_new_local(my_rows, 0.0);
 
-  std::vector<int> recvcounts(size), displs(size);
-  for (int r = 0; r < size; ++r) {
-    int rows_r = n / size + (r < remainder ? 1 : 0);
-    recvcounts[r] = rows_r;
-    displs[r] = r * (n / size) + std::min(r, remainder);
+  std::vector<int> recvcounts(size);
+  std::vector<int> displs(size);
+  for (int proc_idx = 0; proc_idx < size; ++proc_idx) {        // Изменено имя переменной
+    int rows_r = (n / size) + (proc_idx < remainder ? 1 : 0);  // Добавлены скобки
+    recvcounts[proc_idx] = rows_r;
+    displs[proc_idx] = (proc_idx * (n / size)) + std::min(proc_idx, remainder);  // Добавлены скобки
   }
 
   for (int iter = 0; iter < in.max_iter; ++iter) {
-    // --- локальный расчёт ---
     for (int local_i = 0; local_i < my_rows; ++local_i) {
       int i = start_row + local_i;
-      ValueType diag = in.A[i * n + i];
+      ValueType diag = in.A[(i * n) + i];  // Добавлены скобки
       if (std::fabs(diag) < 1e-15) {
         return false;
       }
@@ -81,7 +84,7 @@ bool TitaevMYakobiMPI::RunImpl() {
       ValueType sum = 0.0;
       for (int j = 0; j < n; ++j) {
         if (j != i) {
-          sum += in.A[i * n + j] * x_old[j];
+          sum += in.A[(i * n) + j] * x_old[j];  // Добавлены скобки
         }
       }
 
@@ -97,7 +100,6 @@ bool TitaevMYakobiMPI::RunImpl() {
                 MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
     int converged = 0;
-
     if (rank == 0) {
       ValueType max_diff = 0.0;
       for (int i = 0; i < n; ++i) {
@@ -108,14 +110,13 @@ bool TitaevMYakobiMPI::RunImpl() {
       converged = (max_diff < in.eps) ? 1 : 0;
     }
 
-    // --- синхронизация ---
     MPI_Bcast(x_old.data(), n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&converged, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-    // 🔥 КРИТИЧНО: output обновляется НА ВСЕХ rank
+    // ✅ КЛЮЧЕВАЯ СТРОКА: обновление результата на ВСЕХ процессах
     out = x_old;
 
-    if (converged) {
+    if (converged != 0) {  // Явное сравнение с 0
       break;
     }
   }
