@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <utility>
 #include <vector>
 
 #include "titaev_m_yakobi/common/include/common.hpp"
@@ -21,14 +23,14 @@ bool TitaevMYakobiMPI::ValidationImpl() {
   if (in.n <= 0) {
     return false;
   }
-  const std::size_t n_size = static_cast<std::size_t>(in.n);
+  const auto n_size = static_cast<std::size_t>(in.n);
   if (n_size * n_size != in.A.size()) {
     return false;
   }
-  if (static_cast<std::size_t>(in.n) != in.b.size()) {
+  if (n_size != in.b.size()) {
     return false;
   }
-  if (!in.x0.empty() && static_cast<std::size_t>(in.n) != in.x0.size()) {
+  if (!in.x0.empty() && n_size != in.x0.size()) {
     return false;
   }
   if (in.eps <= 0.0 || in.max_iter <= 0) {

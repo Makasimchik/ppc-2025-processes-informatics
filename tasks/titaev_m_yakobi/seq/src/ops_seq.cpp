@@ -5,7 +5,6 @@
 #include <vector>
 
 #include "titaev_m_yakobi/common/include/common.hpp"
-#include "titaev_m_yakobi/seq/include/ops_seq.hpp"
 
 namespace titaev_m_yakobi {
 
@@ -20,13 +19,14 @@ bool TitaevMYakobiSEQ::ValidationImpl() {
   if (in.n <= 0) {
     return false;
   }
-  if (static_cast<std::size_t>(in.n * in.n) != in.A.size()) {
+  const auto n_size = static_cast<std::size_t>(in.n);
+  if (n_size * n_size != in.A.size()) {
     return false;
   }
-  if (static_cast<std::size_t>(in.n) != in.b.size()) {
+  if (n_size != in.b.size()) {
     return false;
   }
-  if (!in.x0.empty() && static_cast<std::size_t>(in.n) != in.x0.size()) {
+  if (!in.x0.empty() && n_size != in.x0.size()) {
     return false;
   }
   if (in.eps <= 0.0 || in.max_iter <= 0) {
