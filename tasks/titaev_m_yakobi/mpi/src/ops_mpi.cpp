@@ -21,8 +21,8 @@ bool TitaevMYakobiMPI::ValidationImpl() {
   if (in.n <= 0) {
     return false;
   }
-const std::size_t n_size = static_cast<std::size_t>(in.n);
-if (n_size * n_size != in.A.size()) {
+  const std::size_t n_size = static_cast<std::size_t>(in.n);
+  if (n_size * n_size != in.A.size()) {
     return false;
   }
   if (static_cast<std::size_t>(in.n) != in.b.size()) {
@@ -91,7 +91,7 @@ bool TitaevMYakobiMPI::RunImpl() {
   std::vector<int> recvcounts(size);
   std::vector<int> displs(size);
 
-for (int proc = 0; proc < size; ++proc) {
+  for (int proc = 0; proc < size; ++proc) {
     const int rows_proc = rows_per_proc + (proc < remainder ? 1 : 0);
     recvcounts[proc] = rows_proc;
     displs[proc] = (proc * rows_per_proc) + std::min(proc, remainder);
