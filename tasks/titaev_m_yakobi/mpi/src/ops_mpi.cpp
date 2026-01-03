@@ -10,7 +10,7 @@
 
 namespace titaev_m_yakobi {
 
-TitaevMYakobiMPI::TitaevMYakobiMPI(const InType &in) : input_(in) {
+TitaevMYakobiMPI::TitaevMYakobiMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
   GetOutput().resize(in.n, 0.0);
@@ -19,6 +19,9 @@ TitaevMYakobiMPI::TitaevMYakobiMPI(const InType &in) : input_(in) {
 bool TitaevMYakobiMPI::ValidationImpl() {
   const auto &in = GetInput();
   if (in.n <= 0) {
+    return false;
+  }
+  if (static_cast<int>(in.A.size()) != in.n * in.n) {
     return false;
   }
   if (static_cast<int>(in.b.size()) != in.n) {
@@ -43,14 +46,14 @@ bool TitaevMYakobiMPI::PreProcessingImpl() {
   return true;
 }
 
-void TitaevMYakobiMPI::ComputeLocal(const std::vector<ValueType> &x_old, std::vector<ValueType> &x_new, int start_row,
-                                    int my_rows) const {
+void TitaevMYakobiMPI::ComputeLocal(const std::vector<ValueType> &x_old, std::vector<ValueType> &x_new_local,
+                                    int start_row, int my_rows) {
   const auto &in = GetInput();
   const int n = in.n;
 
   for (int local_i = 0; local_i < my_rows; ++local_i) {
     const int i = start_row + local_i;
-    ValueType diag = in.A[i * n + i];
+    const ValueType diag = in.A[i * n + i];
     if (std::fabs(diag) < 1e-15) {
       continue;
     }
@@ -61,7 +64,7 @@ void TitaevMYakobiMPI::ComputeLocal(const std::vector<ValueType> &x_old, std::ve
         sum += in.A[i * n + j] * x_old[j];
       }
     }
-    x_new[local_i] = (in.b[i] - sum) / diag;
+    x_new_local[local_i] = (in.b[i] - sum) / diag;
   }
 }
 
@@ -70,7 +73,8 @@ bool TitaevMYakobiMPI::RunImpl() {
   auto &out = GetOutput();
   const int n = in.n;
 
-  int rank = 0, size = 0;
+  int rank = 0;
+  int size = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
@@ -83,19 +87,20 @@ bool TitaevMYakobiMPI::RunImpl() {
 
   std::vector<ValueType> x_new_local(my_rows, 0.0);
 
+  std::vector<int> recvcounts(size);
+  std::vector<int> displs(size);
+  for (int r = 0; r < size; ++r) {
+    const int rows_r = rows_per_proc + (r < remainder ? 1 : 0);
+    recvcounts[r] = rows_r;
+    displs[r] = r * rows_per_proc + std::min(r, remainder);
+  }
+
   for (int iter = 0; iter < in.max_iter; ++iter) {
     ComputeLocal(x_old, x_new_local, start_row, my_rows);
 
     std::vector<ValueType> x_new_global;
     if (rank == 0) {
       x_new_global.resize(n);
-    }
-
-    std::vector<int> recvcounts(size), displs(size);
-    for (int r = 0; r < size; ++r) {
-      int rows_r = rows_per_proc + (r < remainder ? 1 : 0);
-      recvcounts[r] = rows_r;
-      displs[r] = r * rows_per_proc + std::min(r, remainder);
     }
 
     MPI_Gatherv(x_new_local.data(), my_rows, MPI_DOUBLE, x_new_global.data(), recvcounts.data(), displs.data(),
@@ -105,7 +110,10 @@ bool TitaevMYakobiMPI::RunImpl() {
     if (rank == 0) {
       ValueType max_diff = 0.0;
       for (int i = 0; i < n; ++i) {
-        max_diff = std::max(max_diff, std::fabs(x_new_global[i] - x_old[i]));
+        const ValueType diff = std::fabs(x_new_global[i] - x_old[i]);
+        if (diff > max_diff) {
+          max_diff = diff;
+        }
       }
       x_old = x_new_global;
       converged = (max_diff < in.eps) ? 1 : 0;
@@ -116,7 +124,7 @@ bool TitaevMYakobiMPI::RunImpl() {
 
     out = x_old;
 
-    if (converged) {
+    if (converged != 0) {
       break;
     }
   }

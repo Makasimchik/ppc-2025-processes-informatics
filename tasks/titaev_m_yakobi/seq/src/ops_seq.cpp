@@ -8,7 +8,6 @@
 
 namespace titaev_m_yakobi {
 
-// Конструктор БЕЗ инициализации поля input_
 TitaevMYakobiSEQ::TitaevMYakobiSEQ(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
@@ -18,6 +17,9 @@ TitaevMYakobiSEQ::TitaevMYakobiSEQ(const InType &in) {
 bool TitaevMYakobiSEQ::ValidationImpl() {
   const auto &in = GetInput();
   if (in.n <= 0) {
+    return false;
+  }
+  if (static_cast<int>(in.A.size()) != in.n * in.n) {
     return false;
   }
   if (static_cast<int>(in.b.size()) != in.n) {
@@ -42,12 +44,12 @@ bool TitaevMYakobiSEQ::PreProcessingImpl() {
   return true;
 }
 
-void TitaevMYakobiSEQ::Iterate(const std::vector<ValueType> &x_old, std::vector<ValueType> &x_new) const {
+void TitaevMYakobiSEQ::Iterate(const std::vector<ValueType> &x_old, std::vector<ValueType> &x_new) {
   const auto &in = GetInput();
   const int n = in.n;
 
   for (int i = 0; i < n; ++i) {
-    ValueType diag = in.A[i * n + i];
+    const ValueType diag = in.A[i * n + i];
     if (std::fabs(diag) < 1e-15) {
       continue;
     }
@@ -75,7 +77,10 @@ bool TitaevMYakobiSEQ::RunImpl() {
 
     ValueType max_diff = 0.0;
     for (int i = 0; i < n; ++i) {
-      max_diff = std::max(max_diff, std::fabs(x_new[i] - x_old[i]));
+      const ValueType diff = std::fabs(x_new[i] - x_old[i]);
+      if (diff > max_diff) {
+        max_diff = diff;
+      }
     }
 
     x_old.swap(x_new);

@@ -20,7 +20,7 @@ class TitaevMYakobiSEQ : public BaseTask {
   bool RunImpl() override;
   bool PostProcessingImpl() override;
 
-  void Iterate(const std::vector<ValueType> &x_old, std::vector<ValueType> &x_new) const;
+  void Iterate(const std::vector<ValueType> &x_old, std::vector<ValueType> &x_new);
 };
 
 }  // namespace titaev_m_yakobi
