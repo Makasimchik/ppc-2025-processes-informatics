@@ -1,8 +1,10 @@
 #include "titaev_m_yakobi/seq/include/ops_seq.hpp"
 
-#include <cmath>
-#include <vector>
 #include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <vector>
+
 #include "titaev_m_yakobi/common/include/common.hpp"
 
 namespace titaev_m_yakobi {
@@ -18,13 +20,13 @@ bool TitaevMYakobiSEQ::ValidationImpl() {
   if (in.n <= 0) {
     return false;
   }
-  const std::size_t n_size = static_cast<std::size_t>(in.n);
-  if (n_size != in.b.size()) {
-  return false;
-}
-if (!in.x0.empty() && n_size != in.x0.size()) {
-  return false;
-}
+  const std::size_t expected_size = static_cast<std::size_t>(in.n) * in.n;
+  if (expected_size != in.A.size()) {
+    return false;
+  }
+  if (static_cast<std::size_t>(in.n) != in.b.size()) {
+    return false;
+  }
   if (!in.x0.empty() && static_cast<std::size_t>(in.n) != in.x0.size()) {
     return false;
   }
