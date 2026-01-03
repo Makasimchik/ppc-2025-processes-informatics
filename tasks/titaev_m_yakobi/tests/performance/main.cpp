@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <vector>
@@ -16,7 +15,7 @@ class TitaevMYakobiPerfTests : public ppc::util::BaseRunPerfTests<InType, OutTyp
  protected:
   void SetUp() override {
     test_input_.n = 300;
-    test_input_.A.assign(300 * 300, 0.0);
+    test_input_.A.assign(static_cast<std::size_t>(300) * 300, 0.0);
     test_input_.b.assign(300, 0.0);
     test_input_.x0.assign(300, 0.0);
     test_input_.eps = 1e-6;
@@ -25,21 +24,21 @@ class TitaevMYakobiPerfTests : public ppc::util::BaseRunPerfTests<InType, OutTyp
     for (int i = 0; i < 300; i++) {
       for (int j = 0; j < 300; j++) {
         if (i == j) {
-          test_input_.A[i * 300 + j] = 4.0;
+          test_input_.A[(i * 300) + j] = 4.0;
         } else if (std::abs(i - j) == 1) {
-          test_input_.A[i * 300 + j] = 1.0;
+          test_input_.A[(i * 300) + j] = 1.0;
         }
       }
       test_input_.b[i] = 0.0;
       for (int j = 0; j < 300; j++) {
-        test_input_.b[i] += test_input_.A[i * 300 + j];
+        test_input_.b[i] += test_input_.A[(i * 300) + j];
       }
     }
   }
 
   bool CheckTestOutputData(OutType &output) final {
     const double tol = 1e-4;
-    for (auto x : output) {
+    for (const auto x : output) {
       if (std::fabs(x - 1.0) > tol) {
         return false;
       }

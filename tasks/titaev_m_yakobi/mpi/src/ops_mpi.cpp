@@ -4,8 +4,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstddef>  // для size_t
-#include <cstdint>  // для целочисленных сравнений
 #include <vector>
 
 namespace titaev_m_yakobi {
