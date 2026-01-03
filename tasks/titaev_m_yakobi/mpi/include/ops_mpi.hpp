@@ -15,8 +15,8 @@ class TitaevMYakobiMPI : public BaseTask {
   explicit TitaevMYakobiMPI(const InType &in);
 
  private:
-  int CheckConvergence(int rank, int n, const std::vector<ValueType> &x_new_global, const std::vector<ValueType> &x_old,
-                       ValueType eps);
+  static int CheckConvergence(int rank, int n, const std::vector<ValueType> &x_new_global,
+                              const std::vector<ValueType> &x_old, ValueType eps);
   bool ValidationImpl() override;
   bool PreProcessingImpl() override;
   bool RunImpl() override;
